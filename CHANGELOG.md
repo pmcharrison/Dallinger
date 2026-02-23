@@ -4,6 +4,15 @@
 - Replaced third-party `cached_property` package with Python's built-in `functools.cached_property` (available since Python 3.8).
 - Moved `ipython` from core dependencies to `jupyter` optional dependency, reducing install size for users who don't need Jupyter features.
 - Moved `numpy` from core dependencies to `data` and `ec2` optional dependencies.
+- Improved provisioning output: replaced noisy error messages and bare data dumps with yaspin spinners and green checkmarks for all long-running steps (Docker check/install, storage resize, DNS record creation, etc.).
+
+#### Added
+- Added `allow_repeat_worker_ids` config option to allow recruiters to accept multiple submissions from the same worker ID.
+- Added support for passing extras to the constraints generator when using pyproject.toml.
+
+#### Fixed
+- Fixed `get_page_from_directory` route returning 500 errors with full tracebacks for missing templates (e.g. from vulnerability scanners). Now returns 404, matching the existing `get_page` behavior.
+- Fixed Dozzle login failing on deployments using Dozzle v8+. The `set_dozzle_password` function was using SHA256 hashing, which is no longer supported by recent Dozzle versions. Now uses bcrypt. Also pinned Dozzle image to v10.0.2 to prevent future breaking changes from `:latest`.
 
 #### Removed
 - Removed `ua-parser` package from dependencies (still required via `user-agents`).

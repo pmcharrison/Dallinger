@@ -130,6 +130,54 @@ class TestGenerateConstraints:
         generate_constraints()
         check_constraints()
 
+    def test_generate_constraints_extras_require_pyproject(
+        self, in_tempdir, python_version_file
+    ):
+        with open("requirements.txt", "w") as f:
+            f.write("dallinger==11.4.0")
+        with pytest.raises(
+            ValueError,
+            match="Extras can only be used when pyproject.toml is the input file",
+        ):
+            generate_constraints(extras=["demo"])
+
+    def test_generate_constraints_prefers_pyproject_with_extras(
+        self, in_tempdir, python_version_file, monkeypatch
+    ):
+        Path("requirements.txt").write_text("dallinger==11.4.0\n")
+        Path("pyproject.toml").write_text(
+            "[project]\n" 'dependencies = ["dallinger==11.4.0"]\n'
+        )
+        captured = {}
+
+        def fake_pip_compile(in_file, out_file, constraints=None, extras=None):
+            captured["in_file"] = Path(in_file)
+            captured["extras"] = extras
+            Path(out_file).write_text("Python 3.13\n")
+
+        monkeypatch.setattr("dallinger.constraints._pip_compile", fake_pip_compile)
+        monkeypatch.setattr(
+            "dallinger.constraints._get_dallinger_reference",
+            lambda *_args, **_kwargs: "v11.4.0",
+        )
+        monkeypatch.setattr(
+            "dallinger.constraints._get_dallinger_dev_requirements_path",
+            lambda *_args, **_kwargs: "https://example.com/dev-requirements.txt",
+        )
+        monkeypatch.setattr(
+            "dallinger.constraints._test_dallinger_dev_requirements_path",
+            lambda *_args, **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            "dallinger.constraints._make_constraints_paths_relative",
+            lambda: None,
+        )
+
+        generate_constraints(extras=["demo"])
+
+        assert captured["in_file"].name == "pyproject.toml"
+        assert captured["extras"] == ["demo"]
+
 
 def test_check_constraints_wrong_python_version(in_tempdir):
     with open(".python-version", "w") as f:
@@ -190,6 +238,27 @@ def test_constraints_run_from_wrong_directory(tempdir, python_version_file):
 
     with working_directory(tempdir):
         _pip_compile(Path("requirements.txt"), Path("constraints.txt"))
+
+
+def test_pip_compile_passes_extras_to_uv(
+    in_tempdir, python_version_file, monkeypatch
+):
+    Path("requirements.txt").write_text("dallinger==11.4.0\n")
+    captured = {}
+
+    def fake_check_output(cmd, env=None, stderr=None):
+        captured["cmd"] = cmd
+        return b""
+
+    monkeypatch.setattr("dallinger.constraints.uv_available", lambda: True)
+    monkeypatch.setattr(
+        "dallinger.constraints.subprocess.check_output", fake_check_output
+    )
+
+    _pip_compile(Path("requirements.txt"), Path("constraints.txt"), extras=["demo"])
+
+    assert "--extra" in captured["cmd"]
+    assert "demo" in captured["cmd"]
 
 
 def test_python_versions_consistent():
