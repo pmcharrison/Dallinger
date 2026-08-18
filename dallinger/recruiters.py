@@ -830,15 +830,20 @@ class ProlificRecruiter(Recruiter):
         )
 
     def reward_bonus(self, participant, amount, reason):
-        """Reward the Prolific worker for a specified assignment with a bonus."""
+        """Reward the Prolific worker for a specified assignment with a bonus.
+
+        Returns True if the transfer succeeded, False if Prolific rejected it.
+        """
         try:
-            return self.prolificservice.pay_session_bonus(
+            self.prolificservice.pay_session_bonus(
                 study_id=self.current_study_id,
                 worker_id=participant.worker_id,
                 amount=amount,
             )
         except ProlificServiceException as ex:
             handle_recruitment_error(ex)
+            return False
+        return True
 
     def on_task_completion(self):
         """We cannot perform post-submission actions (approval, bonus payment)
@@ -1255,6 +1260,7 @@ class CLIRecruiter(Recruiter):
                 amount, participant.assignment_id, reason
             )
         )
+        return True
 
     def verify_status_of(self, participants: list[Participant]):
         """We only track participants locally, so we have nothing to do."""
@@ -1299,6 +1305,7 @@ class HotAirRecruiter(CLIRecruiter):
             "Were this a real Recruiter, we'd be awarding ${} for assignment {}, "
             'with reason "{}"'.format(amount, participant.assignment_id, reason)
         )
+        return True
 
     def _get_mode(self):
         # Ignore config settings and always use debug mode
@@ -1830,13 +1837,26 @@ class MTurkRecruiter(Recruiter):
         logger.debug("MTurkRecruiter assuming all is well with participant status...")
 
     def reward_bonus(self, participant, amount, reason):
-        """Reward the Turker for a specified assignment with a bonus."""
+        """Reward the Turker for a specified assignment with a bonus.
+
+        Returns True if the transfer succeeded, False if MTurk rejected it.
+        """
         try:
-            return self.mturkservice.grant_bonus(
+            granted = self.mturkservice.grant_bonus(
                 participant.assignment_id, amount, reason
             )
         except MTurkServiceException as ex:
             handle_recruitment_error(ex)
+            return False
+        if granted is False:
+            handle_recruitment_error(
+                MTurkServiceException(
+                    "MTurk grant_bonus returned unsuccessful for assignment "
+                    f"{participant.assignment_id}."
+                )
+            )
+            return False
+        return True
 
     @property
     def is_in_progress(self):
@@ -2215,6 +2235,7 @@ class BotRecruiter(Recruiter):
     def reward_bonus(self, participant, amount, reason):
         """Logging only. These are bots."""
         logger.debug("Bots don't get bonuses. Sorry, bots.")
+        return True
 
     def on_task_completion(self):
         return {

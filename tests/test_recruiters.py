@@ -583,10 +583,13 @@ class TestProlificRecruiter:
 
     def test_reward_bonus_passes_only_whats_needed(self, a, recruiter):
         participant = a.participant(assignment_id="some assignement")
-        recruiter.reward_bonus(
-            participant=participant,
-            amount=2.99,
-            reason="well done!",
+        assert (
+            recruiter.reward_bonus(
+                participant=participant,
+                amount=2.99,
+                reason="well done!",
+            )
+            is True
         )
 
         recruiter.prolificservice.pay_session_bonus.assert_called_once_with(
@@ -602,10 +605,13 @@ class TestProlificRecruiter:
             ProlificServiceException("Boom!")
         )
         with mock.patch("dallinger.recruiters.logger") as mock_logger:
-            recruiter.reward_bonus(
-                participant=a.participant(),
-                amount=2.99,
-                reason="well done!",
+            assert (
+                recruiter.reward_bonus(
+                    participant=a.participant(),
+                    amount=2.99,
+                    reason="well done!",
+                )
+                is False
             )
 
         mock_logger.exception.assert_called_once_with("Boom!")
@@ -1314,10 +1320,13 @@ class TestMTurkRecruiter:
 
     def test_reward_bonus_passes_only_whats_needed(self, a, recruiter):
         participant = a.participant()
-        recruiter.reward_bonus(
-            participant=participant,
-            amount=2.99,
-            reason="well done!",
+        assert (
+            recruiter.reward_bonus(
+                participant=participant,
+                amount=2.99,
+                reason="well done!",
+            )
+            is True
         )
 
         recruiter.mturkservice.grant_bonus.assert_called_once_with(
@@ -1330,9 +1339,18 @@ class TestMTurkRecruiter:
         participant = a.participant()
         recruiter.mturkservice.grant_bonus.side_effect = MTurkServiceException("Boom!")
         with mock.patch("dallinger.recruiters.logger") as mock_logger:
-            recruiter.reward_bonus(participant, 2.99, "fake reason")
+            assert recruiter.reward_bonus(participant, 2.99, "fake reason") is False
 
         mock_logger.exception.assert_called_once_with("Boom!")
+
+    def test_reward_bonus_returns_false_when_grant_bonus_returns_false(
+        self, a, recruiter
+    ):
+        participant = a.participant()
+        recruiter.mturkservice.grant_bonus.return_value = False
+        with mock.patch("dallinger.recruiters.handle_recruitment_error") as handle:
+            assert recruiter.reward_bonus(participant, 2.99, "fake reason") is False
+        handle.assert_called_once()
 
     def test_approve_hit(self, recruiter):
         fake_id = "fake assignment id"

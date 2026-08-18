@@ -11,6 +11,7 @@
 
 ### Changed
 
+- Recruiter `reward_bonus` now returns `True`/`False` so callers can tell whether the platform accepted the transfer. Prolific and MTurk return `False` when the service raises or MTurk `grant_bonus` reports failure; CLI, HotAir, and Bot recruiters return `True` after logging.
 - Tagged configuration values are now resolved by source priority (package
   defaults < experiment class defaults < `~/.dallingerconfig` <
   `Experiment.config_settings()` < `config.txt` < environment variables <
